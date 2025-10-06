@@ -7,6 +7,5 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class IngestionTcpApplication {
     public static void main(String[] args) {
         SpringApplication.run(IngestionTcpApplication.class, args);
-        System.out.println("TCP Listener service started (placeholder)");
     }
 }
