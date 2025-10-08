@@ -1,45 +1,51 @@
 package risk.decision.ingestion.tcp.service;
 
-import org.springframework.kafka.core.KafkaTemplate;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import risk.decision.common.util.JsonValidator;
 
 import jakarta.annotation.PostConstruct;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 @Service
 public class TcpServer {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final String topic = "transactions";
-
-    public TcpServer(KafkaTemplate<String, String> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
-    }
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
 
     @PostConstruct
     public void startServer() {
         new Thread(() -> {
             try (ServerSocket serverSocket = new ServerSocket(9090)) {
-                System.out.println("TCP Server listening on port 9090...");
+                System.out.println("TCP Server started on port 9090...");
 
                 while (true) {
                     Socket socket = serverSocket.accept();
-                    BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream())
-                    );
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        System.out.println("Received TCP message: " + line);
-                        kafkaTemplate.send(topic, line);
+                    String inputLine = in.readLine();
+
+                    try {
+                        JSONObject json = new JSONObject(inputLine);
+                        JsonValidator.validateTransaction(json.toString());
+
+                        kafkaProducerService.sendTransaction(json.toString());
+                        out.println("Transaction accepted and published to Kafka");
+                    } catch (Exception e) {
+                        out.println("Invalid transaction: " + e.getMessage());
+                    } finally {
+                        socket.close();
                     }
                 }
+
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new RuntimeException("Error in TCP server", e);
             }
         }).start();
     }

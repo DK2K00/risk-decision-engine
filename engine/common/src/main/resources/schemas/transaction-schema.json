@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Transaction",
+  "type": "object",
+  "properties": {
+    "transactionId": {
+      "type": "string",
+      "description": "Unique transaction identifier"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Transaction amount"
+    },
+    "currency": {
+      "type": "string",
+      "description": "Currency code (e.g. USD)"
+    },
+    "customerId": {
+      "type": "string",
+      "description": "Customer ID"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the transaction occurred"
+    }
+  },
+  "required": ["transactionId", "amount", "currency", "customerId", "timestamp"]
+}
