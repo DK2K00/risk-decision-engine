@@ -16,6 +16,7 @@
         <module>processing-service</module>
         <module>rule-engine</module>
         <module>persistence</module>
+        <module>transaction-processor</module>
     </modules>
 
     <repositories>
