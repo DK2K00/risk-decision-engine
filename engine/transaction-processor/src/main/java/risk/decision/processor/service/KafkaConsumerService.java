@@ -1,34 +1,39 @@
 package risk.decision.processor.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import risk.decision.common.dto.TransactionRequest;
+import risk.decision.processor.client.ProcessingServiceClient;
 
 @Service
 public class KafkaConsumerService {
 
-  private final KafkaTemplate<String, String> kafkaTemplate;
-  private final String deadLetterTopic;
+  private final ProcessingServiceClient client;
+  private final ObjectMapper mapper = new ObjectMapper();
 
-  public KafkaConsumerService(
-    KafkaTemplate<String, String> kafkaTemplate,
-    @Value("${topics.dead-letter}") String deadLetterTopic
-  ) {
-    this.kafkaTemplate = kafkaTemplate;
-    this.deadLetterTopic = deadLetterTopic;
+  public KafkaConsumerService(ProcessingServiceClient client) {
+    this.client = client;
   }
 
   @KafkaListener(topics = "${topics.main}", groupId = "risk-decision-consumer")
-  public void consume(ConsumerRecord<String, String> record) {
+  public void consume(ConsumerRecord<String, String> record) throws Exception {
     try {
-      String message = record.value();
-      System.out.println("✅ Consumed transaction: " + message);
-      // TODO: Call Rule Engine here in future
+      TransactionRequest request = mapper.readValue(
+        record.value(),
+        TransactionRequest.class
+      );
+
+      System.out.println(
+        "📥 Forwarding transaction to processing-service: " +
+        request.getTransactionId()
+      );
+
+      client.send(request);
     } catch (Exception e) {
-      System.err.println("❌ Error processing record: " + e.getMessage());
-      kafkaTemplate.send(deadLetterTopic, record.value());
+      System.err.println("❌ Failed to process record: " + e.getMessage());
+      throw e; // let Kafka retry for now
     }
   }
 }
