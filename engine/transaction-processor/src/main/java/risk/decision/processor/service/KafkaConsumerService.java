@@ -2,6 +2,9 @@ package risk.decision.processor.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import risk.decision.common.dto.TransactionRequest;
@@ -12,6 +15,10 @@ public class KafkaConsumerService {
 
   private final ProcessingServiceClient client;
   private final ObjectMapper mapper = new ObjectMapper();
+
+  private static final Logger log = LoggerFactory.getLogger(
+    KafkaConsumerService.class
+  );
 
   public KafkaConsumerService(ProcessingServiceClient client) {
     this.client = client;
@@ -25,15 +32,20 @@ public class KafkaConsumerService {
         TransactionRequest.class
       );
 
-      System.out.println(
-        "📥 Forwarding transaction to processing-service: " +
-        request.getTransactionId()
-      );
+      // Inject transactionId into MDC
+      MDC.put("transactionId", request.getTransactionId());
+
+      log.info("Consumed transaction from Kafka");
 
       client.send(request);
+
+      log.info("Forwarded transaction to processing-service");
     } catch (Exception e) {
-      System.err.println("❌ Failed to process record: " + e.getMessage());
-      throw e; // let Kafka retry for now
+      log.error("Error processing Kafka record", e);
+      throw e;
+    } finally {
+      // Always clear MDC
+      MDC.clear();
     }
   }
 }

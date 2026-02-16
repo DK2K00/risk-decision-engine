@@ -1,5 +1,8 @@
 package risk.decision.processing.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.*;
 import risk.decision.common.domain.DecisionResult;
 import risk.decision.common.domain.DecisionResult;
@@ -24,16 +27,24 @@ public class ProcessingController {
     this.persistenceService = persistenceService;
   }
 
+  private static final Logger log = LoggerFactory.getLogger(
+    ProcessingController.class
+  );
+
   @PostMapping
   public void processTransaction(@RequestBody TransactionRequest request) {
-    RiskContext context = RiskContextMapper.fromRequest(request, "KAFKA");
+    MDC.put("transactionId", request.getTransactionId());
 
-    DecisionResult decision = ruleEngine.evaluate(context);
+    try {
+      RiskContext context = RiskContextMapper.fromRequest(request, "KAFKA");
 
-    persistenceService.persist(context, decision);
+      DecisionResult decision = ruleEngine.evaluate(context);
 
-    System.out.println(
-      "💾 Persisted decision for txn " + context.getTransactionId()
-    );
+      persistenceService.persist(context, decision);
+
+      log.info("Decision computed: {}", decision.getDecisionType());
+    } finally {
+      MDC.clear();
+    }
   }
 }
